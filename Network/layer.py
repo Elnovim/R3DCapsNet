@@ -10,18 +10,19 @@ mdim2 = mdim*mdim
 
 
 def stacked_LSTM(inputs, list_size_lstm, rnn_tuple_state, list_length_sequence=None, dropout = None, name_scope = '', activation = tf.tanh, dtype=tf.float32):
-    list_of_lstm = []
-    for curr_size in list_size_lstm:
+    with tf.name_scope(name_scope+'_LSTM'):
+        list_of_lstm = []
+        for curr_size in list_size_lstm:
 
-        lstm_cell = tf.contrib.rnn.LSTMCell(curr_size, activation=activation)
+            lstm_cell = tf.contrib.rnn.LSTMCell(curr_size, activation=activation)
 
-        if dropout != None:
-            lstm_cell = tf.contrib.rnn.DropoutWrapper(lstm_cell, output_keep_prob=dropout)
+            if dropout != None:
+                lstm_cell = tf.contrib.rnn.DropoutWrapper(lstm_cell, output_keep_prob=dropout)
 
-        list_of_lstm.append(lstm_cell)
+            list_of_lstm.append(lstm_cell)
 
-    multi_cell = tf.contrib.rnn.MultiRNNCell(list_of_lstm)
-    output, states = tf.nn.dynamic_rnn(initial_state=rnn_tuple_state, scope=name_scope+'_RNN', cell=multi_cell, inputs=inputs, dtype=dtype, sequence_length=list_length_sequence, time_major=False)
+        multi_cell = tf.contrib.rnn.MultiRNNCell(list_of_lstm)
+        output, states = tf.nn.dynamic_rnn(initial_state=rnn_tuple_state, scope=name_scope+'_RNN', cell=multi_cell, inputs=inputs, dtype=dtype, sequence_length=list_length_sequence, time_major=False)
     return output, states
 
 

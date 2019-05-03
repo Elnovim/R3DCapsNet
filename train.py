@@ -1,4 +1,3 @@
-import time
 from random import seed
 
 import numpy as np
@@ -11,6 +10,7 @@ import config
 
 
 learning_rate = config.learning_rate
+len_clip = config.n_frames_per_seq
 n_classes = config.n_classes
 data_type = config.data_type
 path_to_save = config.path_to_save
@@ -20,8 +20,6 @@ m_delta = config.m_delta
 n_eps_for_m = config.n_eps_for_m
 n_epochs = config.n_epochs
 dropout = config.dropout
-
-current_time = lambda: int(round(time.time()*1000))
 
 ########################################## MAIN ###############################################
 
@@ -34,6 +32,7 @@ def main():
     tf.reset_default_graph()
 
     train, validation, size_descriptors = reader.get_train_data()
+    size_descriptors[0] = len_clip
 
     net = network.NetworkModel(learning_rate, n_classes, size_descriptors, data_type, True)
 
@@ -47,47 +46,30 @@ def main():
 
     ################################## LOOP TRAINING #####################################
 
-    best_accuracy = 0
-    checks_since_last_progress = 0
-
-    t = current_time()
-
     m = start_m
 
     while train.epoch_completed <= n_epochs:
-        state_c = np.zeros((batch_size, 512))
-        state_h = np.zeros((batch_size, 512))
+        state_1_c, state_1_h = np.zeros((batch_size, 1024)), np.zeros((batch_size, 1024))
+        state_2_c, state_2_h = np.zeros((batch_size, 512)), np.zeros((batch_size, 512))
         epoch_act = train.epoch_completed
         while epoch_act == train.epoch_completed:
             if train.index_in_clip == 0:
-                state_c = np.zeros((batch_size, 512))
-                state_h = np.zeros((batch_size, 512))
+                state_1_c, state_1_h = np.zeros((batch_size, 1024)), np.zeros((batch_size, 1024))
+                state_2_c, state_2_h = np.zeros((batch_size, 512)), np.zeros((batch_size, 512))
 
             batch_x, batch_y = train.next_batch()
-            _, states = net.optimize(sess, batch_x, batch_y, state_c, state_h, m, dropout)
-            state_c = states.c
-            state_h = states.h
+            _, states = net.optimize(sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h, m, dropout)
+            state_1_c, state_1_h, state_2_c, state_2_h = states[0].c, states[0].h, states[1].c, states[1].h
 
         if train.epoch_completed % n_eps_for_m == 0:
             m = max(0.9, m+m_delta)
 
-        accuracy_last, caps_loss_last, pred_loss_last, final_loss_last = util.prediction(net, sess, validation.frames_data, validation.labels_data, train.epoch_completed)
+        accuracy_last, caps_loss_last, pred_loss_last, final_loss_last = util.prediction(net, sess, validation.frames_data, validation.labels_data, size_descriptors, train.epoch_completed)
         util.write_summary(net, sess, valid_writer, train.epoch_completed, accuracy_last, caps_loss_last, pred_loss_last, final_loss_last)
 
-        if accuracy_last > best_accuracy:
-            best_accuracy = accuracy_last
-            checks_since_last_progress = 0
-            model_saver.save(sess, config.path_to_save+'/model_last.ckpt')
-        else:
-            checks_since_last_progress += 1
+        model_saver.save(sess, path_to_save+'/model_last.ckpt')
 
-        if checks_since_last_progress > config.max_checks_without_progress:
-            print('Early stopping !')
-            break
-
-        n_t = current_time()
-        print("epoch number : " + str(train.epoch_completed) + " finished in : " + str(n_t-t))
-        t = n_t
+        print("epoch number : " + str(train.epoch_completed) + " finished")
 
     valid_writer.close()
     sess.close()

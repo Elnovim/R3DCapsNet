@@ -1,8 +1,9 @@
 import numpy as np
 import config
+import cv2 as cv
 
 
-def prediction(net, sess, list_sequences, list_labels, epochs_completed):
+def prediction(net, sess, list_sequences, list_labels, size_descriptors, epochs_completed):
     final_accuracy_mean = 0.
     final_caps_loss_mean = 0.
     final_pred_loss_mean = 0.
@@ -23,25 +24,28 @@ def prediction(net, sess, list_sequences, list_labels, epochs_completed):
     nb_clip = len(list_sequences[0])//len_clip
 
     for sequences, labels in zip(list_sequences, list_labels):
-        state_c, state_h = np.zeros((config.batch_size, 512)), np.zeros((config.batch_size, 512))
+        state_1_c, state_1_h = np.zeros((1, 1024)), np.zeros((1, 1024))
+        state_2_c, state_2_h = np.zeros((1, 512)), np.zeros((1, 512))
 
         for i in range(0, len(sequences)//len_clip):
-            clip = sequences[len_clip*i:len_clip*(i+1)]
+            frames = sequences[len_clip*i:len_clip*(i+1)]
+            clip = np.zeros((1, size_descriptors[0], size_descriptors[1], size_descriptors[2], size_descriptors[3]))
+            for i in range(len_clip):
+                clip[0][i] = cv.imread(frames[i])
+
             label = labels[len_clip*(i+1)-1]
-            accuracy, caps_loss, pred_loss, final_loss, states = net.prediction(sess, np.asarray([clip]), np.asarray([label]), state_c, state_h)
+            accuracy, caps_loss, pred_loss, final_loss, states = net.prediction(sess, clip, np.asarray([label]), state_1_c, state_1_h, state_2_c, state_2_h)
 
             final_accuracy_mean += accuracy
             final_caps_loss_mean += caps_loss
             final_pred_loss_mean += pred_loss
             final_final_loss_mean += final_loss
-            state_c, state_h = states.c, states.h
+            state_1_c, state_1_h, state_2_c, state_2_h = states[0].c, states[0].h, states[1].c, states[1].h
 
         final_accuracy_last += accuracy
         final_caps_loss_last += caps_loss
         final_pred_loss_last += pred_loss
         final_final_loss_last += final_loss
-
-
 
     final_accuracy_last /= nb_sequences
     final_caps_loss_last /= nb_sequences

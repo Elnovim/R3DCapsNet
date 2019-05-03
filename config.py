@@ -1,6 +1,6 @@
 import os
 
-# batch size and number of epochs
+# batch size, number of epochs and maximum epoch without progress before early stopping
 batch_size = 8
 n_epochs = 120
 
