@@ -18,7 +18,7 @@ epsilon = 1e-6
 n_classes = 25
 
 # dropout rate for the LSTM layer
-dropout = 0.5
+dropout = 0.25
 
 # path to file list train and test dataset
 path_to_train = 'C:/Users/voillemin/Documents/Dataset/nvGesture/nvgesture_train.lst'

@@ -7,6 +7,7 @@ import Network.network as network
 import Reader.nvidiaReader as reader
 import util
 import config
+import psutil
 
 
 learning_rate = config.learning_rate
@@ -43,6 +44,8 @@ def main():
 
     valid_writer = tf.summary.FileWriter(path_to_save+'validation', sess.graph)
     model_saver = tf.train.Saver()
+    model_saver.restore(sess, path_to_save + 'model_last.ckpt')
+    train.set_epoch(5)
 
     ################################## LOOP TRAINING #####################################
 
@@ -58,13 +61,21 @@ def main():
                 state_2_c, state_2_h = np.zeros((batch_size, 512)), np.zeros((batch_size, 512))
 
             batch_x, batch_y = train.next_batch()
-            _, states = net.optimize(sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h, m, dropout)
+            _, states, predictions, accuracy = net.optimize(sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h, m, dropout)
             state_1_c, state_1_h, state_2_c, state_2_h = states[0].c, states[0].h, states[1].c, states[1].h
+            print('predictions : ')
+            print(np.argmax(predictions, axis=1))
+            print('labels : ')
+            print(np.argmax(batch_y, axis=1))
+            print('Accuracy : ' + str(accuracy))
+            print('------------------------\n')
+            print(psutil.virtual_memory())
+            print('------------------------\n\n')
 
         if train.epoch_completed % n_eps_for_m == 0:
-            m = max(0.9, m+m_delta)
+            m = min(0.9, m+m_delta)
 
-        accuracy_last, caps_loss_last, pred_loss_last, final_loss_last = util.prediction(net, sess, validation.frames_data, validation.labels_data, size_descriptors, train.epoch_completed)
+        accuracy_last, caps_loss_last, pred_loss_last, final_loss_last = util.prediction(net, sess, validation.frames_data, validation.labels_data, size_descriptors, train.epoch_completed, m)
         util.write_summary(net, sess, valid_writer, train.epoch_completed, accuracy_last, caps_loss_last, pred_loss_last, final_loss_last)
 
         model_saver.save(sess, path_to_save+'/model_last.ckpt')

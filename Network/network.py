@@ -9,7 +9,7 @@ class NetworkModel:
             with tf.name_scope('inputs'):
                 # Input and output placeholders
                 self._x = tf.placeholder(tf.float32, shape=[None, size_descriptors[0], size_descriptors[1], size_descriptors[2], size_descriptors[3]])
-                self._y = tf.placeholder(tf.int32, shape=[None, n_classes])
+                self._y = tf.placeholder(tf.float32, shape=[None, n_classes])
                 self._lengths_sequence = tf.placeholder(tf.int32, shape=[None])
 
                 self._dropout = tf.placeholder(tf.float32)
@@ -35,11 +35,11 @@ class NetworkModel:
 
                 c2 = tf.layers.conv3d(p1, filters=128, kernel_size=[3,3,3], padding="SAME", name="conv2")
                 b2 = tf.contrib.layers.layer_norm(c2, activation_fn=tf.nn.relu, trainable=mode)
-                p2 = tf.layers.max_pooling3d(b2, pool_size=[1,2,2], strides=[1,2,2], padding="SAME", name="pool2")
+                p2 = tf.layers.max_pooling3d(b2, pool_size=[2,2,2], strides=[1,2,2], padding="SAME", name="pool2")
 
                 c3 = tf.layers.conv3d(p2, filters=256, kernel_size=[3,3,3], padding="SAME", name="conv3")
                 b3 = tf.contrib.layers.layer_norm(c3, activation_fn=tf.nn.relu, trainable=mode)
-                p3 = tf.layers.max_pooling3d(b3, pool_size=[1, 2, 2], strides=[1, 2, 2], padding="SAME", name="pool3")
+                p3 = tf.layers.max_pooling3d(b3, pool_size=[2, 2, 2], strides=[1, 2, 2], padding="SAME", name="pool3")
 
             print('Conv1 : ', p1.get_shape())
             print('Conv2 : ', p2.get_shape())
@@ -97,14 +97,16 @@ class NetworkModel:
                 self._prediction_to_accuracy = tf.nn.softmax(end_network)
 
             with tf.name_scope('loss'):
-                y = tf.reshape(self._y, shape=(-1, n_classes))
-                mask_t = tf.equal(y, 1)
-                mask_i = tf.equal(y, 0)
-                pred_caps_shape = self.pred_caps.get_shape().as_list()
-                a_t = tf.reshape(tf.boolean_mask(self.pred_caps, mask_t), shape=(tf.shape(self.pred_caps)[0], 1))
-                a_i = tf.reshape(tf.boolean_mask(self.pred_caps, mask_i), [tf.shape(self.pred_caps)[0], pred_caps_shape[1] - 1])
-                self._caps_loss = tf.reduce_sum(tf.square(tf.maximum(0.0, self._m - (a_t - a_i))))
+                a_i = tf.expand_dims(self.pred_caps, axis=1)
+                y = tf.expand_dims(self._y, axis=2)
+                a_t = tf.matmul(a_i, y)
+
+                caps_loss = tf.square(tf.maximum(0.0, self._m - (a_t - a_i)))
+                caps_loss = tf.matmul(caps_loss, 1. - y)
+                self._caps_loss = tf.reduce_sum(tf.reduce_sum(caps_loss, axis=[1,2]))
+
                 self._pred_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=end_network, labels=self._y))
+
                 self._final_loss = self._caps_loss + self._pred_loss
 
             with tf.name_scope('optimizer'):
@@ -133,8 +135,8 @@ class NetworkModel:
             self._final_loss_last: final_loss_last
         })
 
-    def prediction(self, sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h):
-        return sess.run([self._accuracy, self._caps_loss, self._pred_loss, self._final_loss, self._states], feed_dict={
+    def prediction(self, sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h, m):
+        return sess.run([self._accuracy, self._prediction_to_accuracy, self._caps_loss, self._pred_loss, self._final_loss, self._states], feed_dict={
             self._x: batch_x,
             self._y: batch_y,
             self._lengths_sequence: np.ones(batch_x.shape[0]),
@@ -143,12 +145,12 @@ class NetworkModel:
             self._state_2_c: state_2_c,
             self._state_2_h: state_2_h,
             self._is_train: False,
-            self._m: 0.9,
+            self._m: m,
             self._dropout: 1.0
         })
 
     def optimize(self, sess, batch_x, batch_y, state_1_c, state_1_h, state_2_c, state_2_h, m, dropout):
-        return sess.run([self._train_op, self._states], feed_dict={
+        return sess.run([self._train_op, self._states, self._prediction_to_accuracy, self._accuracy], feed_dict={
             self._x: batch_x,
             self._y: batch_y,
             self._lengths_sequence: np.ones(batch_x.shape[0]),

@@ -43,6 +43,9 @@ class Dataset(object):
         def index_in_clip(self):
             return self._index_in_clip
 
+        def set_epoch(self, epoch):
+            self._epoch_completed = epoch
+
         def load_next_batch(self):
             data = self._frames_data[self._index_in_epoch:self._index_in_epoch+self._batch_size]
             self._batch_data = np.zeros((self._batch_size, self._size_descriptors[0], self._size_descriptors[1], self._size_descriptors[2], self._size_descriptors[3]))
@@ -109,9 +112,7 @@ def load_data(path_infos, nb_labels):
         size_descriptors = [size, h, w, c]
 
         data_label = np.zeros((size, nb_labels))
-        data_label[:begin, -1] = 1.
-        data_label[end:, -1] = 1.
-        data_label[begin:end, label-1] = 1.
+        data_label[:, label-1] = 1.
 
         if size > max_size:
             max_size = size
@@ -140,6 +141,10 @@ def get_train_data():
     nb_labels = config.n_classes
     frames_train_data, labels_train_data, max_size, size_descriptors = load_data(path_infos, nb_labels)
 
+    c = list(zip(frames_train_data, labels_train_data))
+    shuffle(c)
+    frames_train_data, labels_train_data = zip(*c)
+
     split_ind = int(split_ratio * len(frames_train_data))
 
     train = Dataset(frames_train_data[:split_ind], labels_train_data[:split_ind], max_size, size_descriptors)
@@ -147,7 +152,17 @@ def get_train_data():
 
     return train, valid, size_descriptors
 
+def get_test_data():
+    path_infos = config.path_to_test
+    nb_labels = config.n_classes
+    frames_test_data, labels_test_data, max_size, size_descriptors = load_data(path_infos, nb_labels)
 
+    c = list(zip(frames_test_data, labels_test_data))
+    shuffle(c)
+    frames_test_data, labels_test_data = zip(*c)
 
+    test = Dataset(frames_test_data, labels_test_data, max_size, size_descriptors)
+
+    return test, size_descriptors
 
 
