@@ -15,9 +15,6 @@ n_classes = config.n_classes
 data_type = config.data_type
 path_to_save = config.path_to_save
 batch_size = config.batch_size
-start_m = config.start_m
-m_delta = config.m_delta
-n_eps_for_m = config.n_eps_for_m
 n_epochs = config.n_epochs
 dropout = config.dropout
 
