@@ -1,51 +1,60 @@
 import os
 
-# batch size, number of epochs and maximum epoch without progress before early stopping
-batch_size = 3
-n_epochs = 100000
-max_check_early_stop = 100
+batch_size = 4
 
-# descriptors of image
-heigth = 112
-width = 112
-channel = 3
+n_epochs = 1000
 
-# number of frames per sequence
-n_frames_per_seq = 8
+# Number of epoch between each validation
+n_eps_for_eval = 3
 
-# learning rate and beta1 for Adam Optimizer
+# Training accuracy threshold before starting validation
+acc_for_eval = 0.75
+
 learning_rate = 0.0001
-beta1 = 0.9
+beta1 = 0.5
 
-
-# epsilon to prevent numerical instability (division by 0 or log(0))
+# Epsilon to prevent dividing by 0
 epsilon = 1e-6
 
-# number of class
-n_classes = 26
+use_c3d = True
 
-# dropout rate for the LSTM layer
-dropout = 0.25
+n_classes = 28
 
-#use or not convolutional 3d weights pre-trained
-use_c3d_weights = True
- 
-# path to file list train and test dataset
-path_to_train = 'C:/Users/voillemin/Documents/Dataset/nvGesture/nvgesture_train.lst'
-path_to_test = 'C:/Users/voillemin/Documents/Dataset/nvGesture/nvgesture_test.lst'
+output_file_name = "C:/Users/voillemin/Documents/Results/R3DCapsNet/ODHG/output.txt"
+network_save_dir = "C:/Users/voillemin/Documents/Results/R3DCapsNet/ODHG/"
+if not os.path.exists(network_save_dir):
+	os.mkdir(network_save_dir)
+save_file_name = network_save_dir + 'model.ckpt'
 
-# path save results and model
-path_to_save = 'C:/Users/voillemin/Documents/Results/R3DCapsNet/cross_entropy_w_logits/Color26/'
+# Margin for classification loss, incrementation value and step
+start_m = 0.2
+m_delta = 0.1
+n_eps_for_m = 5
 
-# Data type (Color or Depth)
-data_type = 'Color'
+# Number of frames to skip in the sequences
+frame_skip = 1
 
-# Split ration between training and validation datasets on the training dataset
-split_ratio_train_valid = 0.85
+# Time to wait for loading data
+wait = 5
 
-# size of the pose matrix height and width
-pose_dimension = 4
+# Number of batches before printing results
+print_batches = 100
 
-# parameters for the EM-routing operation
+# Parameters for the EM-routing operation
 inv_temp = 0.5
 inv_temp_delta = 0.1
+
+# Size of the pose matrix height and width
+pose_dimension = 4
+
+def clear_output():
+	with open(output_file_name, 'w') as f:
+		print('Writing to ' + output_file_name)
+
+def write_output(string):
+	try:
+		output_log = open(output_file_name, 'a')
+		output_log.write(string)
+		output_log.close()
+	except:
+		print('Unable to save output log')
